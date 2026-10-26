@@ -69,6 +69,8 @@ textarea{min-height:84px;resize:vertical}
     <span class="label" id="codeTag"></span>
   </header>
 
+  <p class="err" id="lostBar" hidden>Verbindung unterbrochen. Verbinde neu …</p>
+
   <!-- Start -->
   <section class="card" id="startScreen">
     <label class="label" for="nameInput">Dein Name</label>
@@ -125,6 +127,14 @@ const ICON={
 const FACES=["star","cat","cat","empty","empty","empty"];
 const FNAME={star:"Stern",cat:"Katze",empty:"Leer"};
 const PREFIX="fragewuerfel-v1-";
+// STUN + freie TURN-Server, damit Handys auch in verschiedenen Netzen zueinander finden
+const PEER_OPTS={config:{iceServers:[
+  {urls:"stun:stun.l.google.com:19302"},
+  {urls:"stun:stun1.l.google.com:19302"},
+  {urls:"turn:openrelay.metered.ca:80",username:"openrelayproject",credential:"openrelayproject"},
+  {urls:"turn:openrelay.metered.ca:443",username:"openrelayproject",credential:"openrelayproject"},
+  {urls:"turn:openrelay.metered.ca:443?transport=tcp",username:"openrelayproject",credential:"openrelayproject"}
+]}};
 const LETTERS="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 const $=id=>document.getElementById(id);
@@ -152,16 +162,18 @@ function createGame(tries=0){
   if(typeof Peer==="undefined"){startError("Die Verbindung konnte nicht geladen werden. Prüfe dein Internet.");return}
   $("startErr").hidden=true;show("waitScreen");$("waitText").textContent="Spiel wird erstellt …";
   code=newCode();isHost=true;
-  peer=new Peer(PREFIX+code);
+  peer=new Peer(PREFIX+code,PEER_OPTS);
   peer.on("open",id=>{
     myId=id;
-    S={players:[{id,name}],started:false,turn:0,phase:"roll",face:null,rollId:0,q:null,log:[]};
+    if(!S)S={players:[{id,name}],started:false,turn:0,phase:"roll",face:null,rollId:0,q:null,log:[]};
     publish();
   });
   peer.on("connection",conn=>{
     conn.on("data",msg=>hostHandle(conn,msg));
-    conn.on("close",()=>removePlayer(conn.peer));
-    conn.on("error",()=>removePlayer(conn.peer));
+    // Nicht sofort entfernen: Handys verlieren kurz die Verbindung und kommen zurück
+    const drop=()=>setTimeout(()=>{if(conns[conn.peer]===conn&&!conn.open)removePlayer(conn.peer)},45000);
+    conn.on("close",drop);
+    conn.on("error",drop);
   });
   peer.on("error",err=>{
     if(err.type==="unavailable-id"&&tries<5){try{peer.destroy()}catch(_){}createGame(tries+1);return}
@@ -172,10 +184,21 @@ function createGame(tries=0){
 function hostHandle(conn,msg){
   if(!msg||typeof msg!=="object")return;
   const id=conn.peer;
+  if(msg.t==="ping"){
+    conns[id]=conn;
+    if(S.players.find(p=>p.id===id)){try{conn.send({t:"state",state:S})}catch(_){}}
+    return;
+  }
   if(msg.t==="join"){
     conns[id]=conn;
     const name=String(msg.name||"Gast").slice(0,20);
-    if(!S.players.find(p=>p.id===id))S.players.push({id,name});
+    const sameId=S.players.find(p=>p.id===id);
+    const sameName=S.players.find(p=>p.name===name&&p.id!==myId);
+    if(!sameId&&sameName){
+      // Gleiche Person kommt mit neuer Verbindung zurück: Platz übernehmen
+      const old=sameName.id;sameName.id=id;delete conns[old];
+      if(S.q){S.q.waiting=S.q.waiting.map(w=>w===old?id:w);if(S.q.from===old)S.q.from=id}
+    } else if(!sameId){S.players.push({id,name})}
     publish();return;
   }
   act(id,msg);
@@ -236,25 +259,58 @@ function joinGame(){
   if(c.length!==4){startError("Der Code hat 4 Zeichen.");return}
   if(typeof Peer==="undefined"){startError("Die Verbindung konnte nicht geladen werden. Prüfe dein Internet.");return}
   $("startErr").hidden=true;show("waitScreen");$("waitText").textContent="Verbinde mit "+c+" …";
-  code=c;isHost=false;
-  peer=new Peer();
+  code=c;isHost=false;myName=name;lastSeen=Date.now();lostSince=0;
+  peer=new Peer(PEER_OPTS);
   peer.on("open",id=>{
     myId=id;
-    hostConn=peer.connect(PREFIX+c,{reliable:true});
-    const timeout=setTimeout(()=>{if(!S)startError("Keine Antwort. Stimmt der Code? Ist das Spiel noch offen?")},12000);
-    hostConn.on("open",()=>hostConn.send({t:"join",name}));
-    hostConn.on("data",msg=>{if(msg&&msg.t==="state"){clearTimeout(timeout);S=msg.state;render()}});
-    hostConn.on("close",()=>{if(S){S=null;startError("Das Spiel ist beendet, weil die Person, die es erstellt hat, weg ist.")}});
+    connectToHost();
+    setTimeout(()=>{if(!S)startError("Keine Antwort. Stimmt der Code? Ist das Spiel noch offen? Ihr könnt auch versuchen, beide im gleichen WLAN zu sein.")},20000);
+    if(!heartbeat)heartbeat=setInterval(guestHeartbeat,3000);
   });
+  peer.on("disconnected",()=>{try{peer.reconnect()}catch(_){}});
   peer.on("error",err=>{
-    if(err.type==="peer-unavailable")startError("Diesen Code gibt es nicht. Prüfe ihn nochmal.");
+    if(err.type==="peer-unavailable"){
+      if(!S)startError("Diesen Code gibt es nicht. Prüfe ihn nochmal.");
+    }
     else if(!S)startError("Verbindung hat nicht geklappt. Versuch es nochmal.");
   });
 }
+let myName="",lastSeen=0,lostSince=0,heartbeat=null;
+function connectToHost(){
+  if(hostConn){try{hostConn.close()}catch(_){}}
+  const conn=peer.connect(PREFIX+code,{reliable:true});
+  hostConn=conn;
+  conn.on("open",()=>conn.send({t:"join",name:myName}));
+  conn.on("data",msg=>{
+    if(msg&&msg.t==="state"){S=msg.state;lastSeen=Date.now();lostSince=0;$("lostBar").hidden=true;render()}
+  });
+}
+function guestHeartbeat(){
+  if(isHost||!peer)return;
+  if(hostConn&&hostConn.open){try{hostConn.send({t:"ping"})}catch(_){}}
+  if(!S)return;
+  if(Date.now()-lastSeen>8000){
+    if(!lostSince)lostSince=Date.now();
+    $("lostBar").hidden=false;
+    if(Date.now()-lostSince>90000){
+      clearInterval(heartbeat);heartbeat=null;S=null;
+      startError("Das Spiel ist beendet. Die Person, die es erstellt hat, ist nicht mehr da.");return;
+    }
+    if(peer.disconnected){try{peer.reconnect()}catch(_){}}
+    else connectToHost();
+  }
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState!=="visible"||!peer)return;
+  if(peer.disconnected){try{peer.reconnect()}catch(_){}}
+  if(isHost)publish();
+  else if(S)connectToHost();
+});
 
 function send(msg){
   if(isHost)act(myId,msg);
   else if(hostConn&&hostConn.open)hostConn.send(msg);
+  else{$("lostBar").hidden=false;connectToHost()}
 }
 
 /* ================= ANZEIGE ================= */
