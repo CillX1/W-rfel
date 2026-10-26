@@ -6,30 +6,31 @@
 <title>Fragewürfel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Nunito+Sans:wght@400;600;700&display=swap">
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <style>
 :root{
-  --bg:#eef1ec; --felt:#2f6b55; --felt-deep:#24543f; --ivory:#fffdf6;
-  --fg:#1d2a24; --muted:#5d6c64; --line:#d5ddd6; --card:#ffffff; --accent:#d9572b; --accent-fg:#ffffff;
-  --star:#e9a91c; --cat:#3b3f4a; --chip:#e3ebe5; --bad:#b3261e;
+  --bg:#e9f0fb; --table:#1f5fae; --table-deep:#153f7a; --ivory:#ffffff;
+  --fg:#10213d; --muted:#51627f; --line:#cfdbee; --card:#ffffff; --accent:#1d63d8; --accent-fg:#ffffff;
+  --star:#f2b416; --cat:#2b3446; --chip:#dbe6f7; --bad:#c2261d; --on-table:#e4eeff;
   --display:"Bricolage Grotesque",ui-rounded,system-ui,sans-serif;
   --body:"Nunito Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme: dark){:root{
-  --bg:#121815; --felt:#1f4a3a; --felt-deep:#173a2d; --ivory:#f4f0e2;
-  --fg:#e6ece8; --muted:#9aaba2; --line:#2b3732; --card:#1a2220; --accent:#ef7a4f; --accent-fg:#1a0d06;
-  --star:#f0b638; --chip:#24302b; --bad:#f2817a; color-scheme:dark}}
+  --bg:#0c1426; --table:#1b4f94; --table-deep:#112f5c; --ivory:#f4f7ff;
+  --fg:#e5ecf9; --muted:#9aabc8; --line:#22314f; --card:#131e36; --accent:#4f8ff7; --accent-fg:#06122a;
+  --chip:#1c2a47; --bad:#ff8a80; color-scheme:dark}}
 *{box-sizing:border-box}
-html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg)}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.5}
 [hidden]{display:none!important}
 .wrap{max-width:560px;margin:0 auto;padding-block:24px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
 header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-h1{font-family:var(--display);font-weight:800;font-size:2rem;margin:0;letter-spacing:-.02em}
+h1{font-family:var(--display);font-weight:800;font-size:2rem;margin:0;letter-spacing:-.02em;color:var(--accent)}
 h2{font-family:var(--display);font-size:1.2rem;margin:0}
 button{font:700 1rem var(--body);border:0;border-radius:12px;padding:12px 22px;cursor:pointer}
 button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .primary{background:var(--accent);color:var(--accent-fg)}
+.light{background:#ffffff;color:#1d4fa8}
 .quiet{background:var(--chip);color:var(--fg)}
 button:disabled{opacity:.45;cursor:not-allowed}
 input,textarea{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;width:100%;min-width:0}
@@ -39,19 +40,19 @@ textarea{min-height:84px;resize:vertical}
 .big{font-family:var(--display);font-weight:600;font-size:1.3rem;line-height:1.3;margin:0}
 .or{text-align:center;color:var(--muted);font-size:.9rem}
 .row{display:flex;gap:8px}
-.code{font-family:var(--display);font-weight:800;font-size:2.6rem;letter-spacing:.15em;text-align:center;margin:0}
+.code{font-family:var(--display);font-weight:800;font-size:2.6rem;letter-spacing:.15em;text-align:center;margin:0;color:var(--accent)}
 .err{color:var(--bad);font-weight:700;margin:0}
 .players{display:flex;gap:8px;flex-wrap:wrap}
 .pl{padding:6px 12px;border-radius:999px;background:var(--chip);font-weight:700;font-size:.9rem}
 .pl.on{background:var(--accent);color:var(--accent-fg)}
-.mat{background:radial-gradient(circle at 50% 40%,var(--felt),var(--felt-deep));border-radius:20px;padding:24px 16px 20px;display:grid;justify-items:center;gap:14px}
+.mat{background:radial-gradient(circle at 50% 35%,var(--table),var(--table-deep));border-radius:20px;padding:24px 16px 20px;display:grid;justify-items:center;gap:14px}
 .turn{color:#fff;font-family:var(--display);font-weight:800;font-size:1.4rem;margin:0;text-align:center}
-.die{width:120px;height:120px;background:var(--ivory);border-radius:22px;box-shadow:0 6px 0 rgba(0,0,0,.25);display:grid;place-items:center}
+.die{width:120px;height:120px;background:var(--ivory);border-radius:22px;box-shadow:0 6px 0 rgba(0,0,0,.28);display:grid;place-items:center}
 .die svg{width:76px;height:76px}
 .die.rolling{animation:roll .6s cubic-bezier(.3,.7,.4,1)}
 @keyframes roll{0%{transform:rotate(0) scale(1)}40%{transform:rotate(200deg) scale(.85)}100%{transform:rotate(360deg) scale(1)}}
 @media (prefers-reduced-motion:reduce){.die.rolling{animation:none}}
-.legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;color:#e3efe8;font-size:.82rem}
+.legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;color:var(--on-table);font-size:.82rem}
 .legend span{display:flex;align-items:center;gap:6px}
 .legend svg{width:18px;height:18px;background:var(--ivory);border-radius:5px;padding:2px}
 .log{list-style:none;margin:0;padding:0;display:grid}
@@ -69,7 +70,7 @@ textarea{min-height:84px;resize:vertical}
     <span class="label" id="codeTag"></span>
   </header>
 
-  <p class="err" id="lostBar" hidden>Verbindung unterbrochen. Verbinde neu …</p>
+  <p class="err" id="lostBar" hidden></p>
 
   <!-- Start -->
   <section class="card" id="startScreen">
@@ -106,7 +107,7 @@ textarea{min-height:84px;resize:vertical}
     <section class="mat" aria-label="Würfeltisch">
       <p class="turn" id="turn"></p>
       <div class="die" id="die" role="img" aria-label="Würfel"></div>
-      <button class="primary" id="rollBtn" type="button">Würfeln</button>
+      <button class="light" id="rollBtn" type="button">Würfeln</button>
       <div class="legend" id="legend"></div>
     </section>
     <section class="card" id="step" aria-live="polite"></section>
@@ -126,194 +127,169 @@ const ICON={
 // 6 Seiten: 1 Stern, 2 Katzen, 3 leer
 const FACES=["star","cat","cat","empty","empty","empty"];
 const FNAME={star:"Stern",cat:"Katze",empty:"Leer"};
-const PREFIX="fragewuerfel-v1-";
-// STUN + freie TURN-Server, damit Handys auch in verschiedenen Netzen zueinander finden
-const PEER_OPTS={config:{iceServers:[
-  {urls:"stun:stun.l.google.com:19302"},
-  {urls:"stun:stun1.l.google.com:19302"},
-  {urls:"turn:openrelay.metered.ca:80",username:"openrelayproject",credential:"openrelayproject"},
-  {urls:"turn:openrelay.metered.ca:443",username:"openrelayproject",credential:"openrelayproject"},
-  {urls:"turn:openrelay.metered.ca:443?transport=tcp",username:"openrelayproject",credential:"openrelayproject"}
-]}};
 const LETTERS="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+// Öffentliche Nachrichten-Server (laufen über normales Internet, kein WLAN-Problem)
+const BROKERS=["wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt"];
+const TOPIC="fragewuerfel-ch/v2/";
 
 const $=id=>document.getElementById(id);
 const el=(tag,props={},kids=[])=>{const e=Object.assign(document.createElement(tag),props);kids.forEach(k=>e.append(k));return e};
 $("legend").innerHTML='<span>'+ICON.star+'1× Stern = Frage</span><span>'+ICON.cat+'2× Katze = nochmal</span><span>'+ICON.empty+'3× leer = nächster</span>';
 
-let peer=null, isHost=false, myId=null, code="", hostConn=null, conns={}, S=null, lastRoll=-1, emptyTimer=null;
+function rid(n){let s="";for(let i=0;i<n;i++)s+=LETTERS[Math.floor(Math.random()*LETTERS.length)];return s}
+let myId=null;
+try{myId=localStorage.getItem("fw-id")}catch(_){}
+if(!myId){myId=rid(12);try{localStorage.setItem("fw-id",myId)}catch(_){}}
 try{$("nameInput").value=localStorage.getItem("fw-name")||""}catch(_){}
 
-function show(screen){
-  ["startScreen","waitScreen","lobby","game"].forEach(id=>$(id).hidden=id!==screen);
+let client=null, code="", myName="", isHost=false, S=null, lastRoll=-1, emptyTimer=null, joinTimer=null, aliveTimer=null, lastAlive=0, gotState=false;
+
+function show(screen){["startScreen","waitScreen","lobby","game"].forEach(id=>$(id).hidden=id!==screen)}
+function stopAll(){
+  [joinTimer,aliveTimer].forEach(t=>t&&clearInterval(t));joinTimer=aliveTimer=null;
+  if(client){try{client.end(true)}catch(_){}client=null}
+  S=null;isHost=false;gotState=false;$("lostBar").hidden=true;$("codeTag").textContent="";
 }
-function startError(msg){show("startScreen");$("startErr").textContent=msg;$("startErr").hidden=false;if(peer){try{peer.destroy()}catch(_){}peer=null}}
+function startError(msg){stopAll();show("startScreen");$("startErr").textContent=msg;$("startErr").hidden=false}
 function getName(){
   const n=$("nameInput").value.trim();
   if(!n){startError("Bitte gib zuerst deinen Namen ein.");return null}
   try{localStorage.setItem("fw-name",n)}catch(_){}
   return n.slice(0,20);
 }
-function newCode(){let c="";for(let i=0;i<4;i++)c+=LETTERS[Math.floor(Math.random()*LETTERS.length)];return c}
 
-/* ================= HOST ================= */
-function createGame(tries=0){
-  const name=getName();if(!name)return;
-  if(typeof Peer==="undefined"){startError("Die Verbindung konnte nicht geladen werden. Prüfe dein Internet.");return}
-  $("startErr").hidden=true;show("waitScreen");$("waitText").textContent="Spiel wird erstellt …";
-  code=newCode();isHost=true;
-  peer=new Peer(PREFIX+code,PEER_OPTS);
-  peer.on("open",id=>{
-    myId=id;
-    if(!S)S={players:[{id,name}],started:false,turn:0,phase:"roll",face:null,rollId:0,q:null,log:[]};
-    publish();
+/* ---------- Verbindung ---------- */
+function connect(onReady,i=0){
+  if(typeof mqtt==="undefined"){startError("Die Seite konnte nicht ganz laden. Prüfe dein Internet und lade neu.");return}
+  if(i>=BROKERS.length){startError("Keine Verbindung zum Spiel-Server. Prüfe dein Internet und versuch es nochmal.");return}
+  let ready=false;
+  const c=mqtt.connect(BROKERS[i],{clientId:"fw_"+myId+"_"+rid(4),clean:true,reconnectPeriod:2000,connectTimeout:8000,keepalive:20});
+  const fail=setTimeout(()=>{if(!ready){try{c.end(true)}catch(_){}connect(onReady,i+1)}},9000);
+  c.on("connect",()=>{
+    $("lostBar").hidden=true;
+    if(ready){resubscribe();if(isHost)publishState();return}
+    ready=true;clearTimeout(fail);client=c;onReady();
   });
-  peer.on("connection",conn=>{
-    conn.on("data",msg=>hostHandle(conn,msg));
-    // Nicht sofort entfernen: Handys verlieren kurz die Verbindung und kommen zurück
-    const drop=()=>setTimeout(()=>{if(conns[conn.peer]===conn&&!conn.open)removePlayer(conn.peer)},45000);
-    conn.on("close",drop);
-    conn.on("error",drop);
-  });
-  peer.on("error",err=>{
-    if(err.type==="unavailable-id"&&tries<5){try{peer.destroy()}catch(_){}createGame(tries+1);return}
-    if(!S)startError("Spiel konnte nicht erstellt werden. Prüfe dein Internet und versuch es nochmal.");
-  });
-  peer.on("disconnected",()=>{try{peer.reconnect()}catch(_){}});
+  c.on("offline",()=>{if(ready){$("lostBar").textContent="Verbindung unterbrochen. Verbinde neu …";$("lostBar").hidden=false}});
+  c.on("message",onMessage);
 }
-function hostHandle(conn,msg){
+function resubscribe(){
+  if(!client)return;
+  client.subscribe(TOPIC+code+"/state",{qos:1});
+  client.subscribe(TOPIC+code+"/alive",{qos:0});
+  if(isHost)client.subscribe(TOPIC+code+"/act",{qos:1});
+}
+function onMessage(topic,buf){
+  let msg;try{msg=JSON.parse(buf.toString())}catch(_){return}
   if(!msg||typeof msg!=="object")return;
-  const id=conn.peer;
-  if(msg.t==="ping"){
-    conns[id]=conn;
-    if(S.players.find(p=>p.id===id)){try{conn.send({t:"state",state:S})}catch(_){}}
-    return;
+  const t=topic.slice((TOPIC+code+"/").length);
+  if(t==="alive"){lastAlive=Date.now();return}
+  if(t==="state"){
+    if(isHost&&gotState)return; // Host ist selbst die Quelle
+    if(!msg.players)return;
+    gotState=true;S=msg;lastAlive=Date.now();
+    if(S.hostId===myId&&!isHost){becomeHost();return}
+    render();return;
   }
-  if(msg.t==="join"){
-    conns[id]=conn;
-    const name=String(msg.name||"Gast").slice(0,20);
-    const sameId=S.players.find(p=>p.id===id);
-    const sameName=S.players.find(p=>p.name===name&&p.id!==myId);
-    if(!sameId&&sameName){
-      // Gleiche Person kommt mit neuer Verbindung zurück: Platz übernehmen
-      const old=sameName.id;sameName.id=id;delete conns[old];
-      if(S.q){S.q.waiting=S.q.waiting.map(w=>w===old?id:w);if(S.q.from===old)S.q.from=id}
-    } else if(!sameId){S.players.push({id,name})}
-    publish();return;
-  }
-  act(id,msg);
+  if(t==="act"&&isHost&&S){act(String(msg.from||""),msg)}
 }
-function removePlayer(id){
+
+/* ---------- Spiel erstellen (Host) ---------- */
+function createGame(){
+  const name=getName();if(!name)return;
+  stopAll();myName=name;$("startErr").hidden=true;show("waitScreen");$("waitText").textContent="Spiel wird erstellt …";
+  code=rid(4);
+  connect(()=>{
+    S={hostId:myId,players:[{id:myId,name}],started:false,turn:0,phase:"roll",face:null,rollId:0,q:null,log:[],v:0};
+    gotState=true;becomeHost();
+  });
+}
+function becomeHost(){
+  isHost=true;resubscribe();publishState();
+  if(!aliveTimer)aliveTimer=setInterval(()=>{if(client&&client.connected)client.publish(TOPIC+code+"/alive","{}",{qos:0})},4000);
+}
+function publishState(){
   if(!S)return;
-  delete conns[id];
-  const i=S.players.findIndex(p=>p.id===id);if(i<0)return;
-  const wasTurn=i===S.turn;
-  S.players.splice(i,1);
-  if(S.q){S.q.waiting=(S.q.waiting||[]).filter(w=>w!==id);checkAnswersDone()}
-  if(i<S.turn)S.turn--;
-  if(S.turn>=S.players.length)S.turn=0;
-  if(S.started&&S.players.length<2){S.started=false}
-  if(wasTurn&&S.started){S.phase="roll";S.face=null;S.q=null}
-  publish();
+  S.v=(S.v||0)+1;
+  if(client)client.publish(TOPIC+code+"/state",JSON.stringify(S),{qos:1,retain:true});
+  render();
 }
+
+/* ---------- Beitreten (Gast) ---------- */
+function joinGame(){
+  const name=getName();if(!name)return;
+  const c=$("codeInput").value.trim().toUpperCase();
+  if(c.length!==4){startError("Der Code hat 4 Zeichen.");return}
+  stopAll();myName=name;code=c;$("startErr").hidden=true;show("waitScreen");$("waitText").textContent="Verbinde mit "+c+" …";
+  connect(()=>{
+    resubscribe();
+    setTimeout(()=>{if(!gotState)startError("Diesen Code gibt es nicht. Prüfe ihn nochmal.")},8000);
+    joinTimer=setInterval(guestTick,3000);guestTick();
+  });
+}
+function guestTick(){
+  if(!client||isHost)return;
+  if(S&&!S.players.find(p=>p.id===myId)){
+    client.publish(TOPIC+code+"/act",JSON.stringify({t:"join",from:myId,name:myName}),{qos:1});
+  }
+  if(S&&Date.now()-lastAlive>15000){
+    $("lostBar").textContent="Warte auf "+(nameOf(S.hostId))+". Das Spiel geht weiter, sobald sie oder er die Seite wieder offen hat.";
+    $("lostBar").hidden=false;
+  } else if(client.connected) $("lostBar").hidden=true;
+}
+
+function send(msg){
+  msg.from=myId;
+  if(isHost)act(myId,msg);
+  else if(client)client.publish(TOPIC+code+"/act",JSON.stringify(msg),{qos:1});
+}
+
+/* ---------- Spielregeln (nur der Host führt sie aus) ---------- */
 function curId(){return S.players[S.turn]&&S.players[S.turn].id}
-function nameOf(id){const p=S.players.find(p=>p.id===id);return p?p.name:"Jemand"}
+function nameOf(id){const p=S&&S.players.find(p=>p.id===id);return p?p.name:"Jemand"}
 function nextTurn(){S.turn=(S.turn+1)%S.players.length;S.phase="roll";S.face=null;S.q=null}
 function checkAnswersDone(){if(S.q&&S.phase==="answer"&&S.q.waiting.length===0)S.phase="done"}
-// Host führt alle Aktionen aus (eigene und die der anderen)
 function act(id,msg){
-  if(msg.t==="start"&&id===myId&&S.players.length>=2){S.started=true;S.turn=0;S.phase="roll";S.face=null;S.log=[];publish();return}
+  if(msg.t==="join"){
+    if(!S.players.find(p=>p.id===id)&&S.players.length<10){
+      S.players.push({id,name:String(msg.name||"Gast").slice(0,20)});
+      if(S.q&&S.phase==="answer"&&S.q.from!==id)S.q.waiting.push(id);
+      publishState();
+    }
+    return;
+  }
+  if(!S.players.find(p=>p.id===id))return;
+  if(msg.t==="start"&&id===myId&&S.players.length>=2){S.started=true;S.turn=0;S.phase="roll";S.face=null;S.q=null;S.log=[];publishState();return}
   if(!S.started)return;
   if(msg.t==="roll"&&id===curId()&&(S.phase==="roll"||S.phase==="again")){
     S.face=FACES[Math.floor(Math.random()*6)];S.rollId++;
     S.phase=S.face==="star"?"ask":S.face==="cat"?"again":"empty";
-    publish();
-    if(S.phase==="empty"){clearTimeout(emptyTimer);const r=S.rollId;emptyTimer=setTimeout(()=>{if(S.rollId===r&&S.phase==="empty"){nextTurn();publish()}},2500)}
+    publishState();
+    if(S.phase==="empty"){clearTimeout(emptyTimer);const r=S.rollId;emptyTimer=setTimeout(()=>{if(S&&S.rollId===r&&S.phase==="empty"){nextTurn();publishState()}},2500)}
     return;
   }
   if(msg.t==="ask"&&id===curId()&&S.phase==="ask"){
     const text=String(msg.text||"").trim().slice(0,300);if(!text)return;
     S.q={from:id,fromName:nameOf(id),text,answers:[],waiting:S.players.filter(p=>p.id!==id).map(p=>p.id)};
-    S.phase="answer";checkAnswersDone();publish();return;
+    S.phase="answer";checkAnswersDone();publishState();return;
   }
   if(msg.t==="answer"&&S.phase==="answer"&&S.q&&S.q.waiting.includes(id)){
     const text=String(msg.text||"").trim().slice(0,300);if(!text)return;
     S.q.answers.push({name:nameOf(id),text});S.q.waiting=S.q.waiting.filter(w=>w!==id);
-    checkAnswersDone();publish();return;
+    checkAnswersDone();publishState();return;
   }
-  if(msg.t==="next"&&id===curId()&&(S.phase==="done"||S.phase==="answer")){
-    if(S.q)S.log.unshift({fromName:S.q.fromName,text:S.q.text,answers:S.q.answers});
-    nextTurn();publish();return;
+  if(msg.t==="next"&&(id===curId()||id===S.hostId)&&(S.phase==="done"||S.phase==="answer")){
+    S.log.unshift({fromName:S.q.fromName,text:S.q.text,answers:S.q.answers});
+    if(S.log.length>30)S.log.length=30;
+    nextTurn();publishState();return;
   }
-}
-function publish(){
-  const data={t:"state",state:S};
-  Object.values(conns).forEach(c=>{try{if(c.open)c.send(data)}catch(_){}});
-  render();
-}
-
-/* ================= GAST ================= */
-function joinGame(){
-  const name=getName();if(!name)return;
-  const c=$("codeInput").value.trim().toUpperCase();
-  if(c.length!==4){startError("Der Code hat 4 Zeichen.");return}
-  if(typeof Peer==="undefined"){startError("Die Verbindung konnte nicht geladen werden. Prüfe dein Internet.");return}
-  $("startErr").hidden=true;show("waitScreen");$("waitText").textContent="Verbinde mit "+c+" …";
-  code=c;isHost=false;myName=name;lastSeen=Date.now();lostSince=0;
-  peer=new Peer(PEER_OPTS);
-  peer.on("open",id=>{
-    myId=id;
-    connectToHost();
-    setTimeout(()=>{if(!S)startError("Keine Antwort. Stimmt der Code? Ist das Spiel noch offen? Ihr könnt auch versuchen, beide im gleichen WLAN zu sein.")},20000);
-    if(!heartbeat)heartbeat=setInterval(guestHeartbeat,3000);
-  });
-  peer.on("disconnected",()=>{try{peer.reconnect()}catch(_){}});
-  peer.on("error",err=>{
-    if(err.type==="peer-unavailable"){
-      if(!S)startError("Diesen Code gibt es nicht. Prüfe ihn nochmal.");
-    }
-    else if(!S)startError("Verbindung hat nicht geklappt. Versuch es nochmal.");
-  });
-}
-let myName="",lastSeen=0,lostSince=0,heartbeat=null;
-function connectToHost(){
-  if(hostConn){try{hostConn.close()}catch(_){}}
-  const conn=peer.connect(PREFIX+code,{reliable:true});
-  hostConn=conn;
-  conn.on("open",()=>conn.send({t:"join",name:myName}));
-  conn.on("data",msg=>{
-    if(msg&&msg.t==="state"){S=msg.state;lastSeen=Date.now();lostSince=0;$("lostBar").hidden=true;render()}
-  });
-}
-function guestHeartbeat(){
-  if(isHost||!peer)return;
-  if(hostConn&&hostConn.open){try{hostConn.send({t:"ping"})}catch(_){}}
-  if(!S)return;
-  if(Date.now()-lastSeen>8000){
-    if(!lostSince)lostSince=Date.now();
-    $("lostBar").hidden=false;
-    if(Date.now()-lostSince>90000){
-      clearInterval(heartbeat);heartbeat=null;S=null;
-      startError("Das Spiel ist beendet. Die Person, die es erstellt hat, ist nicht mehr da.");return;
-    }
-    if(peer.disconnected){try{peer.reconnect()}catch(_){}}
-    else connectToHost();
+  if(msg.t==="skip"&&id===S.hostId&&id!==curId()){
+    if(S.q&&S.q.answers.length)S.log.unshift({fromName:S.q.fromName,text:S.q.text,answers:S.q.answers});
+    nextTurn();publishState();return;
   }
 }
-document.addEventListener("visibilitychange",()=>{
-  if(document.visibilityState!=="visible"||!peer)return;
-  if(peer.disconnected){try{peer.reconnect()}catch(_){}}
-  if(isHost)publish();
-  else if(S)connectToHost();
-});
 
-function send(msg){
-  if(isHost)act(myId,msg);
-  else if(hostConn&&hostConn.open)hostConn.send(msg);
-  else{$("lostBar").hidden=false;connectToHost()}
-}
-
-/* ================= ANZEIGE ================= */
+/* ---------- Anzeige ---------- */
 function render(){
   if(!S)return;
   $("codeTag").textContent="Code "+code;
@@ -324,7 +300,8 @@ function render(){
     S.players.forEach(p=>lp.append(el("span",{className:"pl",textContent:p.name+(p.id===myId?" (du)":"")})));
     $("startGameBtn").hidden=!isHost;
     $("startGameBtn").disabled=S.players.length<2;
-    $("lobbyHint").textContent=isHost?(S.players.length<2?"Warte, bis mindestens eine Person beitritt.":"Alle da? Dann starte das Spiel."):"Warte, bis das Spiel gestartet wird.";
+    const inList=S.players.find(p=>p.id===myId);
+    $("lobbyHint").textContent=isHost?(S.players.length<2?"Warte, bis mindestens eine Person beitritt.":"Alle da? Dann starte das Spiel."):(inList?"Du bist drin! Warte, bis das Spiel gestartet wird.":"Du wirst hinzugefügt …");
     return;
   }
   show("game");
@@ -344,8 +321,8 @@ function render(){
 
 function renderStep(myTurn,curName){
   const box=$("step");
-  const focused=document.activeElement&&document.activeElement.id;
-  const keep=focused&&$(focused)?$(focused).value:null;
+  const fid=document.activeElement&&document.activeElement.id;
+  const keep=(fid==="qInput"||fid==="aInput")?$(fid).value:"";
   box.innerHTML="";
   const add=(lab,txt)=>box.append(el("div",{className:"label",textContent:lab}),el("p",{className:"big",textContent:txt}));
   if(S.phase==="roll")add("Jetzt dran",myTurn?"Würfle!":"Warte, bis "+curName+" würfelt.");
@@ -353,7 +330,7 @@ function renderStep(myTurn,curName){
   if(S.phase==="empty")add("Leer",(myTurn?"Diesmal nichts.":curName+" hat nichts.")+" Gleich ist der Nächste dran …");
   if(S.phase==="ask"){
     add("Stern!",myTurn?"Du darfst eine Frage an alle stellen.":curName+" schreibt gerade eine Frage …");
-    if(myTurn)box.append(textForm("qInput","Schreib deine Frage …","Frage senden",t=>send({t:"ask",text:t}),keep&&focused==="qInput"?keep:""));
+    if(myTurn)box.append(textForm("qInput","Schreib deine Frage …","Frage senden",t=>send({t:"ask",text:t}),fid==="qInput"?keep:""));
   }
   if(S.phase==="answer"||S.phase==="done"){
     add(S.q.fromName+" fragt",S.q.text);
@@ -363,17 +340,16 @@ function renderStep(myTurn,curName){
       box.append(ul);
     }
     const iMustAnswer=S.phase==="answer"&&S.q.waiting.includes(myId);
-    if(iMustAnswer)box.append(textForm("aInput","Deine Antwort …","Antwort senden",t=>send({t:"answer",text:t}),keep&&focused==="aInput"?keep:""));
-    else if(S.phase==="answer"){
-      const names=S.q.waiting.map(nameOf).join(", ");
-      box.append(el("p",{className:"muted",textContent:"Warte auf: "+names}));
-    }
-    if(myTurn){
+    if(iMustAnswer)box.append(textForm("aInput","Deine Antwort …","Antwort senden",t=>send({t:"answer",text:t}),fid==="aInput"?keep:""));
+    else if(S.phase==="answer")box.append(el("p",{className:"muted",textContent:"Warte auf: "+S.q.waiting.map(nameOf).join(", ")}));
+    if(myTurn||(isHost&&S.phase==="done")){
       const b=el("button",{type:"button",className:S.phase==="done"?"primary":"quiet",textContent:S.phase==="done"?"Weiter zum Nächsten":"Nicht mehr warten, weiter"});
       b.onclick=()=>send({t:"next"});box.append(b);
-    } else if(S.phase==="done"){
-      box.append(el("p",{className:"muted",textContent:"Alle haben geantwortet. "+curName+" macht weiter."}));
-    }
+    } else if(S.phase==="done")box.append(el("p",{className:"muted",textContent:"Alle haben geantwortet. "+curName+" macht weiter."}));
+  }
+  if(isHost&&!myTurn&&(S.phase==="roll"||S.phase==="again"||S.phase==="ask")){
+    const s=el("button",{type:"button",className:"quiet",textContent:curName+" überspringen"});
+    s.onclick=()=>send({t:"skip"});box.append(s);
   }
 }
 function textForm(id,ph,btnText,onSend,value){
@@ -382,7 +358,7 @@ function textForm(id,ph,btnText,onSend,value){
   const b=el("button",{type:"submit",className:"primary",textContent:btnText,disabled:!(value||"").trim()});
   ta.oninput=()=>{b.disabled=!ta.value.trim()};
   const f=el("form",{},[ta,b]);f.style.cssText="display:grid;gap:10px";
-  f.onsubmit=e=>{e.preventDefault();const t=ta.value.trim();if(t){b.disabled=true;onSend(t)}};
+  f.onsubmit=e=>{e.preventDefault();const t=ta.value.trim();if(t){b.disabled=true;b.textContent="Gesendet …";onSend(t)}};
   if(value)setTimeout(()=>{ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)},0);
   return f;
 }
@@ -397,7 +373,13 @@ function renderLog(){
   }
 }
 
-$("createBtn").onclick=()=>createGame();
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&client){
+    if(!client.connected){try{client.reconnect()}catch(_){}}
+    else if(isHost)publishState();
+  }
+});
+$("createBtn").onclick=createGame;
 $("joinBtn").onclick=joinGame;
 $("codeInput").addEventListener("keydown",e=>{if(e.key==="Enter")joinGame()});
 $("startGameBtn").onclick=()=>send({t:"start"});
