@@ -278,7 +278,7 @@ function act(id,msg){
     S.q.answers.push({name:nameOf(id),text});S.q.waiting=S.q.waiting.filter(w=>w!==id);
     checkAnswersDone();publishState();return;
   }
-  if(msg.t==="next"&&(id===curId()||id===S.hostId)&&(S.phase==="done"||S.phase==="answer")){
+  if(msg.t==="next"&&(id===curId()||id===S.hostId)&&S.phase==="done"){
     S.log.unshift({fromName:S.q.fromName,text:S.q.text,answers:S.q.answers});
     if(S.log.length>30)S.log.length=30;
     nextTurn();publishState();return;
@@ -342,10 +342,11 @@ function renderStep(myTurn,curName){
     const iMustAnswer=S.phase==="answer"&&S.q.waiting.includes(myId);
     if(iMustAnswer)box.append(textForm("aInput","Deine Antwort …","Antwort senden",t=>send({t:"answer",text:t}),fid==="aInput"?keep:""));
     else if(S.phase==="answer")box.append(el("p",{className:"muted",textContent:"Warte auf: "+S.q.waiting.map(nameOf).join(", ")}));
-    if(myTurn||(isHost&&S.phase==="done")){
-      const b=el("button",{type:"button",className:S.phase==="done"?"primary":"quiet",textContent:S.phase==="done"?"Weiter zum Nächsten":"Nicht mehr warten, weiter"});
+    if(S.phase==="done"&&(myTurn||isHost)){
+      const b=el("button",{type:"button",className:"primary",textContent:"Weiter zum Nächsten"});
       b.onclick=()=>send({t:"next"});box.append(b);
-    } else if(S.phase==="done")box.append(el("p",{className:"muted",textContent:"Alle haben geantwortet. "+curName+" macht weiter."}));
+    } else if(S.phase==="answer"&&!iMustAnswer)box.append(el("p",{className:"muted",textContent:"Es geht erst weiter, wenn alle geantwortet haben."}));
+    else if(S.phase==="done")box.append(el("p",{className:"muted",textContent:"Alle haben geantwortet. "+curName+" macht weiter."}));
   }
   if(isHost&&!myTurn&&(S.phase==="roll"||S.phase==="again"||S.phase==="ask")){
     const s=el("button",{type:"button",className:"quiet",textContent:curName+" überspringen"});
