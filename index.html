@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fragewürfel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Nunito+Sans:wght@400;600;700&display=swap">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{
+  --bg:#eef1ec; --felt:#2f6b55; --felt-deep:#24543f; --ivory:#fffdf6;
+  --fg:#1d2a24; --muted:#5d6c64; --line:#d5ddd6; --card:#ffffff; --accent:#d9572b; --accent-fg:#ffffff;
+  --star:#e9a91c; --cat:#3b3f4a; --chip:#e3ebe5; --bad:#b3261e;
+  --display:"Bricolage Grotesque",ui-rounded,system-ui,sans-serif;
+  --body:"Nunito Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#121815; --felt:#1f4a3a; --felt-deep:#173a2d; --ivory:#f4f0e2;
+  --fg:#e6ece8; --muted:#9aaba2; --line:#2b3732; --card:#1a2220; --accent:#ef7a4f; --accent-fg:#1a0d06;
+  --star:#f0b638; --chip:#24302b; --bad:#f2817a; color-scheme:dark}}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.5}
+[hidden]{display:none!important}
+.wrap{max-width:560px;margin:0 auto;padding-block:24px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:800;font-size:2rem;margin:0;letter-spacing:-.02em}
+h2{font-family:var(--display);font-size:1.2rem;margin:0}
+button{font:700 1rem var(--body);border:0;border-radius:12px;padding:12px 22px;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.primary{background:var(--accent);color:var(--accent-fg)}
+.quiet{background:var(--chip);color:var(--fg)}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,textarea{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;width:100%;min-width:0}
+textarea{min-height:84px;resize:vertical}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;display:grid;gap:12px}
+.label{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.big{font-family:var(--display);font-weight:600;font-size:1.3rem;line-height:1.3;margin:0}
+.or{text-align:center;color:var(--muted);font-size:.9rem}
+.row{display:flex;gap:8px}
+.code{font-family:var(--display);font-weight:800;font-size:2.6rem;letter-spacing:.15em;text-align:center;margin:0}
+.err{color:var(--bad);font-weight:700;margin:0}
+.players{display:flex;gap:8px;flex-wrap:wrap}
+.pl{padding:6px 12px;border-radius:999px;background:var(--chip);font-weight:700;font-size:.9rem}
+.pl.on{background:var(--accent);color:var(--accent-fg)}
+.mat{background:radial-gradient(circle at 50% 40%,var(--felt),var(--felt-deep));border-radius:20px;padding:24px 16px 20px;display:grid;justify-items:center;gap:14px}
+.turn{color:#fff;font-family:var(--display);font-weight:800;font-size:1.4rem;margin:0;text-align:center}
+.die{width:120px;height:120px;background:var(--ivory);border-radius:22px;box-shadow:0 6px 0 rgba(0,0,0,.25);display:grid;place-items:center}
+.die svg{width:76px;height:76px}
+.die.rolling{animation:roll .6s cubic-bezier(.3,.7,.4,1)}
+@keyframes roll{0%{transform:rotate(0) scale(1)}40%{transform:rotate(200deg) scale(.85)}100%{transform:rotate(360deg) scale(1)}}
+@media (prefers-reduced-motion:reduce){.die.rolling{animation:none}}
+.legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;color:#e3efe8;font-size:.82rem}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend svg{width:18px;height:18px;background:var(--ivory);border-radius:5px;padding:2px}
+.log{list-style:none;margin:0;padding:0;display:grid}
+.log>li{border-bottom:1px solid var(--line);padding:12px 0;display:grid;gap:4px;min-width:0}
+.meta{font-size:.8rem;color:var(--muted)}
+.q{font-weight:700;overflow-wrap:anywhere}
+.answers{list-style:none;margin:2px 0 0;padding:0 0 0 10px;border-left:3px solid var(--line);display:grid;gap:3px;overflow-wrap:anywhere}
+.muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Fragewürfel</h1>
+    <span class="label" id="codeTag"></span>
+  </header>
+
+  <!-- Start -->
+  <section class="card" id="startScreen">
+    <label class="label" for="nameInput">Dein Name</label>
+    <input id="nameInput" maxlength="20" placeholder="z.B. Mia" autocomplete="off">
+    <button class="primary" id="createBtn" type="button">Neues Spiel erstellen</button>
+    <div class="or">oder mit Code beitreten</div>
+    <div class="row">
+      <input id="codeInput" maxlength="4" placeholder="CODE" autocomplete="off" style="text-transform:uppercase;letter-spacing:.2em;font-weight:700" aria-label="Spiel-Code">
+      <button class="quiet" id="joinBtn" type="button">Beitreten</button>
+    </div>
+    <p class="err" id="startErr" hidden></p>
+  </section>
+
+  <!-- Verbinden -->
+  <section class="card" id="waitScreen" hidden>
+    <p class="big" id="waitText">Verbinde …</p>
+  </section>
+
+  <!-- Lobby -->
+  <section class="card" id="lobby" hidden>
+    <div class="label">Euer Spiel-Code</div>
+    <p class="code" id="lobbyCode"></p>
+    <p class="muted" style="margin:0">Schick diesen Code deinen Freunden. Sie öffnen die gleiche Webseite und tippen ihn bei „Beitreten“ ein.</p>
+    <div class="label">Im Spiel</div>
+    <div class="players" id="lobbyPlayers"></div>
+    <button class="primary" id="startGameBtn" type="button" hidden>Spiel starten</button>
+    <p class="muted" id="lobbyHint" style="margin:0"></p>
+  </section>
+
+  <!-- Spiel -->
+  <div id="game" hidden style="display:grid;gap:18px">
+    <div class="players" id="players"></div>
+    <section class="mat" aria-label="Würfeltisch">
+      <p class="turn" id="turn"></p>
+      <div class="die" id="die" role="img" aria-label="Würfel"></div>
+      <button class="primary" id="rollBtn" type="button">Würfeln</button>
+      <div class="legend" id="legend"></div>
+    </section>
+    <section class="card" id="step" aria-live="polite"></section>
+    <section>
+      <h2 style="margin-bottom:6px">Fragen und Antworten</h2>
+      <ul class="log" id="log"></ul>
+    </section>
+  </div>
+</div>
+
+<script>
+const ICON={
+  star:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="var(--star)" stroke="#b47f0c" stroke-width=".8" d="M12 2.2l2.9 6.2 6.8.8-5 4.6 1.4 6.7L12 17.1l-6.1 3.4 1.4-6.7-5-4.6 6.8-.8z"/></svg>',
+  cat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="var(--cat)" d="M4 3l4 4.2c1.2-.4 2.6-.6 4-.6s2.8.2 4 .6L20 3v8.5c0 4.6-3.6 8.5-8 8.5s-8-3.9-8-8.5z"/><circle cx="9" cy="12" r="1.3" fill="#e9c94a"/><circle cx="15" cy="12" r="1.3" fill="#e9c94a"/><path d="M11 15h2l-1 1z" fill="#e8a0a8"/></svg>',
+  empty:'<svg viewBox="0 0 24 24" aria-hidden="true"></svg>'
+};
+// 6 Seiten: 1 Stern, 2 Katzen, 3 leer
+const FACES=["star","cat","cat","empty","empty","empty"];
+const FNAME={star:"Stern",cat:"Katze",empty:"Leer"};
+const PREFIX="fragewuerfel-v1-";
+const LETTERS="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+const $=id=>document.getElementById(id);
+const el=(tag,props={},kids=[])=>{const e=Object.assign(document.createElement(tag),props);kids.forEach(k=>e.append(k));return e};
+$("legend").innerHTML='<span>'+ICON.star+'1× Stern = Frage</span><span>'+ICON.cat+'2× Katze = nochmal</span><span>'+ICON.empty+'3× leer = nächster</span>';
+
+let peer=null, isHost=false, myId=null, code="", hostConn=null, conns={}, S=null, lastRoll=-1, emptyTimer=null;
+try{$("nameInput").value=localStorage.getItem("fw-name")||""}catch(_){}
+
+function show(screen){
+  ["startScreen","waitScreen","lobby","game"].forEach(id=>$(id).hidden=id!==screen);
+}
+function startError(msg){show("startScreen");$("startErr").textContent=msg;$("startErr").hidden=false;if(peer){try{peer.destroy()}catch(_){}peer=null}}
+function getName(){
+  const n=$("nameInput").value.trim();
+  if(!n){startError("Bitte gib zuerst deinen Namen ein.");return null}
+  try{localStorage.setItem("fw-name",n)}catch(_){}
+  return n.slice(0,20);
+}
+function newCode(){let c="";for(let i=0;i<4;i++)c+=LETTERS[Math.floor(Math.random()*LETTERS.length)];return c}
+
+/* ================= HOST ================= */
+function createGame(tries=0){
+  const name=getName();if(!name)return;
+  if(typeof Peer==="undefined"){startError("Die Verbindung konnte nicht geladen werden. Prüfe dein Internet.");return}
+  $("startErr").hidden=true;show("waitScreen");$("waitText").textContent="Spiel wird erstellt …";
+  code=newCode();isHost=true;
+  peer=new Peer(PREFIX+code);
+  peer.on("open",id=>{
+    myId=id;
+    S={players:[{id,name}],started:false,turn:0,phase:"roll",face:null,rollId:0,q:null,log:[]};
+    publish();
+  });
+  peer.on("connection",conn=>{
+    conn.on("data",msg=>hostHandle(conn,msg));
+    conn.on("close",()=>removePlayer(conn.peer));
+    conn.on("error",()=>removePlayer(conn.peer));
+  });
+  peer.on("error",err=>{
+    if(err.type==="unavailable-id"&&tries<5){try{peer.destroy()}catch(_){}createGame(tries+1);return}
+    if(!S)startError("Spiel konnte nicht erstellt werden. Prüfe dein Internet und versuch es nochmal.");
+  });
+  peer.on("disconnected",()=>{try{peer.reconnect()}catch(_){}});
+}
+function hostHandle(conn,msg){
+  if(!msg||typeof msg!=="object")return;
+  const id=conn.peer;
+  if(msg.t==="join"){
+    conns[id]=conn;
+    const name=String(msg.name||"Gast").slice(0,20);
+    if(!S.players.find(p=>p.id===id))S.players.push({id,name});
+    publish();return;
+  }
+  act(id,msg);
+}
+function removePlayer(id){
+  if(!S)return;
+  delete conns[id];
+  const i=S.players.findIndex(p=>p.id===id);if(i<0)return;
+  const wasTurn=i===S.turn;
+  S.players.splice(i,1);
+  if(S.q){S.q.waiting=(S.q.waiting||[]).filter(w=>w!==id);checkAnswersDone()}
+  if(i<S.turn)S.turn--;
+  if(S.turn>=S.players.length)S.turn=0;
+  if(S.started&&S.players.length<2){S.started=false}
+  if(wasTurn&&S.started){S.phase="roll";S.face=null;S.q=null}
+  publish();
+}
+function curId(){return S.players[S.turn]&&S.players[S.turn].id}
+function nameOf(id){const p=S.players.find(p=>p.id===id);return p?p.name:"Jemand"}
+function nextTurn(){S.turn=(S.turn+1)%S.players.length;S.phase="roll";S.face=null;S.q=null}
+function checkAnswersDone(){if(S.q&&S.phase==="answer"&&S.q.waiting.length===0)S.phase="done"}
+// Host führt alle Aktionen aus (eigene und die der anderen)
+function act(id,msg){
+  if(msg.t==="start"&&id===myId&&S.players.length>=2){S.started=true;S.turn=0;S.phase="roll";S.face=null;S.log=[];publish();return}
+  if(!S.started)return;
+  if(msg.t==="roll"&&id===curId()&&(S.phase==="roll"||S.phase==="again")){
+    S.face=FACES[Math.floor(Math.random()*6)];S.rollId++;
+    S.phase=S.face==="star"?"ask":S.face==="cat"?"again":"empty";
+    publish();
+    if(S.phase==="empty"){clearTimeout(emptyTimer);const r=S.rollId;emptyTimer=setTimeout(()=>{if(S.rollId===r&&S.phase==="empty"){nextTurn();publish()}},2500)}
+    return;
+  }
+  if(msg.t==="ask"&&id===curId()&&S.phase==="ask"){
+    const text=String(msg.text||"").trim().slice(0,300);if(!text)return;
+    S.q={from:id,fromName:nameOf(id),text,answers:[],waiting:S.players.filter(p=>p.id!==id).map(p=>p.id)};
+    S.phase="answer";checkAnswersDone();publish();return;
+  }
+  if(msg.t==="answer"&&S.phase==="answer"&&S.q&&S.q.waiting.includes(id)){
+    const text=String(msg.text||"").trim().slice(0,300);if(!text)return;
+    S.q.answers.push({name:nameOf(id),text});S.q.waiting=S.q.waiting.filter(w=>w!==id);
+    checkAnswersDone();publish();return;
+  }
+  if(msg.t==="next"&&id===curId()&&(S.phase==="done"||S.phase==="answer")){
+    if(S.q)S.log.unshift({fromName:S.q.fromName,text:S.q.text,answers:S.q.answers});
+    nextTurn();publish();return;
+  }
+}
+function publish(){
+  const data={t:"state",state:S};
+  Object.values(conns).forEach(c=>{try{if(c.open)c.send(data)}catch(_){}});
+  render();
+}
+
+/* ================= GAST ================= */
+function joinGame(){
+  const name=getName();if(!name)return;
+  const c=$("codeInput").value.trim().toUpperCase();
+  if(c.length!==4){startError("Der Code hat 4 Zeichen.");return}
+  if(typeof Peer==="undefined"){startError("Die Verbindung konnte nicht geladen werden. Prüfe dein Internet.");return}
+  $("startErr").hidden=true;show("waitScreen");$("waitText").textContent="Verbinde mit "+c+" …";
+  code=c;isHost=false;
+  peer=new Peer();
+  peer.on("open",id=>{
+    myId=id;
+    hostConn=peer.connect(PREFIX+c,{reliable:true});
+    const timeout=setTimeout(()=>{if(!S)startError("Keine Antwort. Stimmt der Code? Ist das Spiel noch offen?")},12000);
+    hostConn.on("open",()=>hostConn.send({t:"join",name}));
+    hostConn.on("data",msg=>{if(msg&&msg.t==="state"){clearTimeout(timeout);S=msg.state;render()}});
+    hostConn.on("close",()=>{if(S){S=null;startError("Das Spiel ist beendet, weil die Person, die es erstellt hat, weg ist.")}});
+  });
+  peer.on("error",err=>{
+    if(err.type==="peer-unavailable")startError("Diesen Code gibt es nicht. Prüfe ihn nochmal.");
+    else if(!S)startError("Verbindung hat nicht geklappt. Versuch es nochmal.");
+  });
+}
+
+function send(msg){
+  if(isHost)act(myId,msg);
+  else if(hostConn&&hostConn.open)hostConn.send(msg);
+}
+
+/* ================= ANZEIGE ================= */
+function render(){
+  if(!S)return;
+  $("codeTag").textContent="Code "+code;
+  if(!S.started){
+    show("lobby");
+    $("lobbyCode").textContent=code;
+    const lp=$("lobbyPlayers");lp.innerHTML="";
+    S.players.forEach(p=>lp.append(el("span",{className:"pl",textContent:p.name+(p.id===myId?" (du)":"")})));
+    $("startGameBtn").hidden=!isHost;
+    $("startGameBtn").disabled=S.players.length<2;
+    $("lobbyHint").textContent=isHost?(S.players.length<2?"Warte, bis mindestens eine Person beitritt.":"Alle da? Dann starte das Spiel."):"Warte, bis das Spiel gestartet wird.";
+    return;
+  }
+  show("game");
+  const pl=$("players");pl.innerHTML="";
+  S.players.forEach((p,i)=>pl.append(el("span",{className:"pl"+(i===S.turn?" on":""),textContent:p.name+(p.id===myId?" (du)":"")})));
+  const myTurn=curId()===myId;
+  const curName=nameOf(curId());
+  $("turn").textContent=myTurn?"Du bist dran!":curName+" ist dran";
+  const d=$("die");
+  d.innerHTML=ICON[S.face||"star"];d.setAttribute("aria-label","Würfel zeigt "+FNAME[S.face||"star"]);
+  if(S.rollId!==lastRoll){if(lastRoll!==-1&&S.face){d.classList.remove("rolling");void d.offsetWidth;d.classList.add("rolling")}lastRoll=S.rollId}
+  $("rollBtn").hidden=!myTurn;
+  $("rollBtn").disabled=!(S.phase==="roll"||S.phase==="again");
+  $("rollBtn").textContent=S.phase==="again"?"Nochmal würfeln":"Würfeln";
+  renderStep(myTurn,curName);renderLog();
+}
+
+function renderStep(myTurn,curName){
+  const box=$("step");
+  const focused=document.activeElement&&document.activeElement.id;
+  const keep=focused&&$(focused)?$(focused).value:null;
+  box.innerHTML="";
+  const add=(lab,txt)=>box.append(el("div",{className:"label",textContent:lab}),el("p",{className:"big",textContent:txt}));
+  if(S.phase==="roll")add("Jetzt dran",myTurn?"Würfle!":"Warte, bis "+curName+" würfelt.");
+  if(S.phase==="again")add("Katze",myTurn?"Du darfst nochmal würfeln!":curName+" darf nochmal würfeln.");
+  if(S.phase==="empty")add("Leer",(myTurn?"Diesmal nichts.":curName+" hat nichts.")+" Gleich ist der Nächste dran …");
+  if(S.phase==="ask"){
+    add("Stern!",myTurn?"Du darfst eine Frage an alle stellen.":curName+" schreibt gerade eine Frage …");
+    if(myTurn)box.append(textForm("qInput","Schreib deine Frage …","Frage senden",t=>send({t:"ask",text:t}),keep&&focused==="qInput"?keep:""));
+  }
+  if(S.phase==="answer"||S.phase==="done"){
+    add(S.q.fromName+" fragt",S.q.text);
+    if(S.q.answers.length){
+      const ul=el("ul",{className:"answers"});
+      S.q.answers.forEach(a=>ul.append(el("li",{},[el("b",{textContent:a.name+": "}),document.createTextNode(a.text)])));
+      box.append(ul);
+    }
+    const iMustAnswer=S.phase==="answer"&&S.q.waiting.includes(myId);
+    if(iMustAnswer)box.append(textForm("aInput","Deine Antwort …","Antwort senden",t=>send({t:"answer",text:t}),keep&&focused==="aInput"?keep:""));
+    else if(S.phase==="answer"){
+      const names=S.q.waiting.map(nameOf).join(", ");
+      box.append(el("p",{className:"muted",textContent:"Warte auf: "+names}));
+    }
+    if(myTurn){
+      const b=el("button",{type:"button",className:S.phase==="done"?"primary":"quiet",textContent:S.phase==="done"?"Weiter zum Nächsten":"Nicht mehr warten, weiter"});
+      b.onclick=()=>send({t:"next"});box.append(b);
+    } else if(S.phase==="done"){
+      box.append(el("p",{className:"muted",textContent:"Alle haben geantwortet. "+curName+" macht weiter."}));
+    }
+  }
+}
+function textForm(id,ph,btnText,onSend,value){
+  const ta=el("textarea",{id,maxLength:300,placeholder:ph,value:value||""});
+  ta.setAttribute("aria-label",ph);
+  const b=el("button",{type:"submit",className:"primary",textContent:btnText,disabled:!(value||"").trim()});
+  ta.oninput=()=>{b.disabled=!ta.value.trim()};
+  const f=el("form",{},[ta,b]);f.style.cssText="display:grid;gap:10px";
+  f.onsubmit=e=>{e.preventDefault();const t=ta.value.trim();if(t){b.disabled=true;onSend(t)}};
+  if(value)setTimeout(()=>{ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)},0);
+  return f;
+}
+function renderLog(){
+  const ul=$("log");ul.innerHTML="";
+  if(!S.log.length){ul.append(el("li",{className:"muted",textContent:"Noch keine Fragen. Wer einen Stern würfelt, darf fragen."}));return}
+  for(const q of S.log){
+    const ans=el("ul",{className:"answers"});
+    if(!q.answers.length)ans.append(el("li",{className:"muted",textContent:"Keine Antworten"}));
+    q.answers.forEach(a=>ans.append(el("li",{},[el("b",{textContent:a.name+": "}),document.createTextNode(a.text)])));
+    ul.append(el("li",{},[el("div",{className:"meta",textContent:q.fromName+" fragt"}),el("div",{className:"q",textContent:q.text}),ans]));
+  }
+}
+
+$("createBtn").onclick=()=>createGame();
+$("joinBtn").onclick=joinGame;
+$("codeInput").addEventListener("keydown",e=>{if(e.key==="Enter")joinGame()});
+$("startGameBtn").onclick=()=>send({t:"start"});
+$("rollBtn").onclick=()=>send({t:"roll"});
+</script>
+</body>
+</html>
